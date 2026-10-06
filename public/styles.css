@@ -1,0 +1,79 @@
+:root {
+  --neust-blue: #002855;
+  --neust-gold: #FFC72C;
+}
+
+body {
+  background-color: #f4f6f9;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.neust-header {
+  background-color: var(--neust-blue);
+  border-bottom: 4px solid var(--neust-gold);
+}
+
+.neust-logo {
+  width: 55px;
+  height: 55px;
+  object-fit: contain;
+}
+
+.text-neust-blue {
+  color: var(--neust-blue) !important;
+}
+
+.bg-neust-blue {
+  background-color: var(--neust-blue) !important;
+}
+
+.bg-neust-gold {
+  background-color: var(--neust-gold) !important;
+}
+
+.btn-neust-gold {
+  background-color: var(--neust-gold);
+  border-color: var(--neust-gold);
+}
+
+.btn-neust-gold:hover {
+  background-color: #e0ac1b;
+}
+
+.btn-outline-neust-blue {
+  color: var(--neust-blue);
+  border-color: var(--neust-blue);
+}
+
+.btn-outline-neust-blue:hover {
+  background-color: var(--neust-blue);
+  color: white;
+}
+
+.stat-card {
+  transition: transform 0.2s ease-in-out;
+}
+
+.stat-card:hover {
+  transform: translateY(-3px);
+}
+
+.avatar-img {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 2px solid var(--neust-gold);
+}
+
+/* Chrome, Safari, Edge, Opera */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+input[type=number] {
+  -moz-appearance: textfield;
+}

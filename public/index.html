@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NEUST Student Directory & Analytics</title>
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- NEUST Header -->
+  <header class="neust-header text-white py-3 shadow-sm">
+    <div class="container d-flex align-items-center justify-content-between">
+      <div class="d-flex align-items-center gap-3">
+        <img src="neust_logo.webp" alt="NEUST Logo" class="neust-logo">
+        <div>
+          <h1 class="h4 mb-0 fw-bold text-uppercase">Nueva Ecija University of Science and Technology</h1>
+          <p class="small mb-0 opacity-75">College of Information and Communications Technology — IPT02 Student Directory</p>
+        </div>
+      </div>
+      <div id="auth-header-action">
+        <button id="logout-btn" class="btn btn-outline-light btn-sm d-none" onclick="logout()">
+          <i class="fa-solid fa-right-from-bracket me-1"></i> Logout
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Login Section -->
+  <section id="login-section" class="container py-5">
+    <div class="row justify-content-center">
+      <div class="col-md-5 col-lg-4">
+        <div class="card border-0 shadow-lg rounded-4">
+          <div class="card-body p-4">
+            <div class="text-center mb-4">
+              <i class="fa-solid fa-user-shield text-neust-blue fa-3x mb-2"></i>
+              <h4 class="fw-bold">Student Portal Access</h4>
+              <p class="text-muted small">Sign in with your Student ID and Password</p>
+            </div>
+            <div id="login-alert" class="alert alert-danger d-none" role="alert"></div>
+            <form id="login-form">
+              <div class="mb-3">
+                <label class="form-label text-secondary fw-semibold">Student ID</label>
+                <input 
+                type="text" 
+                id="login-student-id" 
+                class="form-control" 
+                placeholder="e.g. 2023-0001" 
+                pattern="^[0-9\-]+$" 
+                maxlength="15" 
+                inputmode="text" 
+                title="Only numbers and dashes (-) are allowed." 
+                required
+                >
+                <div class="invalid-feedback">
+                    Student ID can only contain numbers and dashes (e.g., 2023-0001).
+                </div>
+             </div>
+              <div class="mb-4">
+                <label class="form-label text-secondary fw-semibold">Password</label>
+                <div class="input-group">
+                    <input type="password" id="login-password" class="form-control" placeholder="••••••••" required>
+                    <button class="btn btn-outline-secondary" type="button" id="toggle-password-btn" onclick="togglePasswordVisibility()">
+                    <i class="fa-solid fa-eye" id="toggle-password-icon"></i>
+                    </button>
+                    </div>
+                </div>
+              <button type="submit" class="btn btn-neust-gold text-dark w-100 fw-bold py-2">
+                <i class="fa-solid fa-key me-1"></i> Authenticate
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Dashboard View (Protected) -->
+  <main id="dashboard-section" class="container py-4 d-none">
+    
+    <!-- Analytics Cards -->
+    <div class="row g-3 mb-4">
+      <div class="col-md-4">
+        <div class="card border-0 shadow-sm rounded-3 stat-card bg-neust-blue text-white">
+          <div class="card-body d-flex justify-content-between align-items-center">
+            <div>
+              <p class="mb-1 text-uppercase small opacity-75 fw-semibold">Total Students</p>
+              <h2 id="stat-total-students" class="mb-0 fw-bold">0</h2>
+            </div>
+            <i class="fa-solid fa-users fa-2x opacity-50"></i>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card border-0 shadow-sm rounded-3 stat-card bg-neust-gold text-dark">
+          <div class="card-body d-flex justify-content-between align-items-center">
+            <div>
+              <p class="mb-1 text-uppercase small opacity-75 fw-semibold">Active Sections</p>
+              <h2 id="stat-total-sections" class="mb-0 fw-bold">0</h2>
+            </div>
+            <i class="fa-solid fa-layer-group fa-2x opacity-50"></i>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card border-0 shadow-sm rounded-3 stat-card bg-dark text-white">
+          <div class="card-body d-flex justify-content-between align-items-center">
+            <div>
+              <p class="mb-1 text-uppercase small opacity-75 fw-semibold">Profile Completion</p>
+              <h2 id="stat-profile-completion" class="mb-0 fw-bold">0%</h2>
+            </div>
+            <i class="fa-solid fa-id-card fa-2x opacity-50"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Student Directory Table Card -->
+    <div class="card border-0 shadow-sm rounded-3">
+      <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 fw-bold text-neust-blue"><i class="fa-solid fa-table me-2"></i>Enrolled Students Directory</h5>
+        <button class="btn btn-sm btn-outline-neust-blue" onclick="loadStudents()">
+          <i class="fa-solid fa-rotate me-1"></i> Refresh
+        </button>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Profile</th>
+                <th>Student ID</th>
+                <th>Name</th>
+                <th>Section</th>
+                <th>Email</th>
+                <th>Mobile</th>
+                <th>Social Link</th>
+              </tr>
+            </thead>
+            <tbody id="student-table-body">
+              <tr>
+                <td colspan="7" class="text-center py-4 text-muted">Loading directory data...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- JavaScript -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
