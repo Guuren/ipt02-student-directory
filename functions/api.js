@@ -27,17 +27,67 @@ const authenticateToken = (req, res, next) => {
 
 // ------------------- PUBLIC ROUTES -------------------
 
-// 1. Get all students for public datatable
-app.get('/api/students', async (req, res) => {
+//1. Student Register
+app.post('/api/register', async (req, res) => {
+  const { 
+    student_id, 
+    student_name, 
+    password, 
+    section, 
+    email, 
+    mobile_number, 
+    social_media_link, 
+    profile_picture_url 
+  } = req.body;
+
+  // 1. Basic Validation
+  if (!student_id || !student_name || !password || !email) {
+    return res.status(400).json({ message: 'Missing required registration fields.' });
+  }
+
   try {
-    const [rows] = await pool.query(
-      'SELECT id, student_id, student_name, section, email, mobile_number, social_media_link, profile_picture_url, created_at FROM students'
+    // 2. Check if Student ID or Email already exists
+    const [existing] = await pool.query(
+      'SELECT id FROM students WHERE student_id = ? OR email = ?',
+      [student_id, email]
     );
-    res.json(rows);
+
+    if (existing.length > 0) {
+      return res.status(400).json({ message: 'Student ID or Email is already registered.' });
+    }
+
+    // 3. Hash the password
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    // 4. Insert into Aiven MySQL Database
+    const [result] = await pool.query(
+      `INSERT INTO students 
+      (student_id, student_name, password, section, email, mobile_number, social_media_link, profile_picture_url) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        student_id,
+        student_name,
+        hashedPassword,
+        section || '',
+        email,
+        mobile_number || '',
+        social_media_link || '',
+        profile_picture_url || ''
+      ]
+    );
+
+    res.status(201).json({
+      message: 'Student account registered successfully!',
+      studentId: result.insertId
+    });
+
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Registration error:', error);
+    res.status(500).json({ message: 'Database error during registration.', error: error.message });
   }
 });
+
 
 // 2. Student Login
 app.post('/api/login', async (req, res) => {
@@ -89,6 +139,19 @@ app.post('/api/login', async (req, res) => {
 
 // ------------------- PROTECTED ROUTES -------------------
 
+// Get all students for public datatable
+// PROTECTED ROUTE: Only logged-in users with a valid JWT can view student records
+app.get('/api/students', authenticateToken, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT id, student_id, student_name, section, email, mobile_number, social_media_link, profile_picture_url, created_at FROM students'
+    );
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+//Protected register student
 app.post('/api/students', async (req, res) => {
   const { student_id, student_name, password, section, email, mobile_number, social_media_link, profile_picture_url } = req.body;
 
@@ -105,7 +168,7 @@ app.post('/api/students', async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
-
+//protected update student
 app.put('/api/students/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
   const { student_name, section, email, mobile_number, social_media_link, profile_picture_url } = req.body;
