@@ -36,6 +36,7 @@ function authenticateToken(req, res, next) {
 // ==========================================
 // REGISTER NEW STUDENT
 // ==========================================
+// REGISTER
 app.post('/api/register', async (req, res) => {
   const {
     student_id,
@@ -48,13 +49,11 @@ app.post('/api/register', async (req, res) => {
     profile_picture_url
   } = req.body;
 
-  // 1. Basic validation
   if (!student_id || !student_name || !password || !email) {
-    return res.status(400).json({ message: 'Please fill in all required fields.' });
+    return res.status(400).json({ message: 'Missing required registration fields.' });
   }
 
   try {
-    // 2. Check if Student ID or Email already exists
     const [existing] = await pool.query(
       'SELECT id FROM students WHERE student_id = ? OR email = ?',
       [student_id, email]
@@ -64,14 +63,13 @@ app.post('/api/register', async (req, res) => {
       return res.status(400).json({ message: 'Student ID or Email is already registered.' });
     }
 
-    // 3. Hash password
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    // 4. Insert into database
+    // Updated 'password' -> 'password_hash' in column list
     const [result] = await pool.query(
       `INSERT INTO students 
-      (student_id, student_name, password, section, email, mobile_number, social_media_link, profile_picture_url) 
+      (student_id, student_name, password_hash, section, email, mobile_number, social_media_link, profile_picture_url) 
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         student_id,
@@ -91,12 +89,8 @@ app.post('/api/register', async (req, res) => {
     });
 
   } catch (error) {
-    // Log exact server error to Netlify console for debugging
-    console.error('Registration Error:', error);
-    res.status(500).json({ 
-      message: 'Server error during registration.', 
-      error: error.message 
-    });
+    console.error('Registration error:', error);
+    res.status(500).json({ message: 'Database error during registration.', error: error.message });
   }
 });
 
@@ -147,8 +141,52 @@ app.post('/api/login', async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
-});
+// LOGIN
+app.post('/api/login', async (req, res) => {
+  const { student_id, password } = req.body;
 
+  try {
+    // Select password_hash from the DB
+    const [rows] = await pool.query(
+      'SELECT id, student_id, student_name, password_hash, section, email FROM students WHERE student_id = ?',
+      [student_id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(401).json({ message: 'Invalid Student ID or Password.' });
+    }
+
+    const student = rows[0];
+
+    // Compare with password_hash
+    const match = await bcrypt.compare(password, student.password_hash);
+    if (!match) {
+      return res.status(401).json({ message: 'Invalid Student ID or Password.' });
+    }
+
+    const token = jwt.sign(
+      { id: student.id, student_id: student.student_id },
+      process.env.JWT_SECRET || 'your_fallback_secret_key',
+      { expiresIn: '24h' }
+    );
+
+    res.json({
+      message: 'Login successful',
+      token: token,
+      student: {
+        id: student.id,
+        student_id: student.student_id,
+        student_name: student.student_name,
+        email: student.email,
+        section: student.section
+      }
+    });
+
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ message: 'Server error during login.', error: error.message });
+  }
+});
 // ------------------- PROTECTED ROUTES -------------------
 
 // Get all students for public datatable
