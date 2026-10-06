@@ -33,21 +33,24 @@ function authenticateToken(req, res, next) {
 // ------------------- PUBLIC ROUTES -------------------
 
 //1. Student Register
+// ==========================================
+// REGISTER NEW STUDENT
+// ==========================================
 app.post('/api/register', async (req, res) => {
-  const { 
-    student_id, 
-    student_name, 
-    password, 
-    section, 
-    email, 
-    mobile_number, 
-    social_media_link, 
-    profile_picture_url 
+  const {
+    student_id,
+    student_name,
+    password,
+    section,
+    email,
+    mobile_number,
+    social_media_link,
+    profile_picture_url
   } = req.body;
 
-  // 1. Basic Validation
+  // 1. Basic validation
   if (!student_id || !student_name || !password || !email) {
-    return res.status(400).json({ message: 'Missing required registration fields.' });
+    return res.status(400).json({ message: 'Please fill in all required fields.' });
   }
 
   try {
@@ -61,11 +64,11 @@ app.post('/api/register', async (req, res) => {
       return res.status(400).json({ message: 'Student ID or Email is already registered.' });
     }
 
-    // 3. Hash the password
+    // 3. Hash password
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    // 4. Insert into Aiven MySQL Database
+    // 4. Insert into database
     const [result] = await pool.query(
       `INSERT INTO students 
       (student_id, student_name, password, section, email, mobile_number, social_media_link, profile_picture_url) 
@@ -83,13 +86,17 @@ app.post('/api/register', async (req, res) => {
     );
 
     res.status(201).json({
-      message: 'Student account registered successfully!',
+      message: 'Account created successfully!',
       studentId: result.insertId
     });
 
   } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ message: 'Database error during registration.', error: error.message });
+    // Log exact server error to Netlify console for debugging
+    console.error('Registration Error:', error);
+    res.status(500).json({ 
+      message: 'Server error during registration.', 
+      error: error.message 
+    });
   }
 });
 
