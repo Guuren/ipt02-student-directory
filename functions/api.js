@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const serverless = require('serverless-http');
 const pool = require('../db');
+const JWT_SECRET = process.env.JWT_SECRET || 'ipt02_compile';
 
 const app = express();
 
@@ -12,18 +13,18 @@ app.use(cors());
 app.use(express.json());
 
 // JWT Verification Middleware
-const authenticateToken = (req, res, next) => {
+function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
-  if (!token) return res.status(401).json({ message: 'Access Token Required' });
+  if (!token) return res.status(401).json({ message: 'Access token missing' });
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ message: 'Invalid or Expired Token' });
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) return res.status(403).json({ message: 'Invalid or expired token' });
     req.user = user;
     next();
   });
-};
+}
 
 // ------------------- PUBLIC ROUTES -------------------
 
@@ -113,10 +114,10 @@ app.post('/api/login', async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: student.id, student_id: student.student_id },
-      process.env.JWT_SECRET,
-      { expiresIn: '2h' }
-    );
+    { id: student.id, student_id: student.student_id }, 
+    JWT_SECRET, 
+    { expiresIn: '24h' }
+  );
 
     res.json({
       message: 'Login successful',
