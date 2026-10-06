@@ -1,13 +1,5 @@
 const API_BASE = '/api';
 
-document.addEventListener('DOMContentLoaded', () => {
-  const token = localStorage.getItem('jwt_token');
-  if (token) {
-    showDashboard();
-  }
-
-  document.getElementById('login-form').addEventListener('submit', handleLogin);
-});
 
 async function handleLogin(e) {
   e.preventDefault();
@@ -105,13 +97,14 @@ function renderAnalytics(students) {
 
 function renderTable(students) {
   const tableBody = document.getElementById('student-table-body');
+  if (!tableBody) return;
 
-  if (students.length === 0) {
+  if (!students || students.length === 0) {
     tableBody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">No student records found.</td></tr>';
     return;
   }
 
-  tableBody.innerHTML = students.map(s => `
+  const newHtml = students.map(s => `
     <tr>
       <td>
         <img src="${s.profile_picture_url || 'https://via.placeholder.com/150'}" alt="Avatar" class="avatar-img" onerror="this.src='https://via.placeholder.com/150'">
@@ -126,6 +119,11 @@ function renderTable(students) {
       </td>
     </tr>
   `).join('');
+
+  // Only mutate the DOM if the HTML actually changed
+  if (tableBody.innerHTML !== newHtml) {
+    tableBody.innerHTML = newHtml;
+  }
 }
 
 function togglePasswordVisibility() {
@@ -149,14 +147,17 @@ document.addEventListener('DOMContentLoaded', () => {
     showDashboard();
   }
 
-  document.getElementById('login-form').addEventListener('submit', handleLogin);
+  const loginForm = document.getElementById('login-form');
+  if (loginForm) {
+    loginForm.addEventListener('submit', handleLogin);
+  }
 
   // Real-time character restriction for Student ID
   const studentIdInput = document.getElementById('login-student-id');
   if (studentIdInput) {
     studentIdInput.addEventListener('input', (e) => {
-      // Strips anything that is NOT a number (0-9) or dash (-)
       e.target.value = e.target.value.replace(/[^0-9-]/g, '');
     });
   }
 });
+
