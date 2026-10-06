@@ -96,51 +96,6 @@ app.post('/api/register', async (req, res) => {
 
 
 // 2. Student Login
-app.post('/api/login', async (req, res) => {
-  const { student_id, password } = req.body;
-
-  // Real-time server side input validation
-  const studentIdRegex = /^[0-9-]+$/;
-  if (!student_id || !studentIdRegex.test(student_id)) {
-    return res.status(400).json({ message: 'Invalid Student ID format. Numbers and dashes only.' });
-  }
-
-  try {
-    const [rows] = await pool.query('SELECT * FROM students WHERE student_id = ?', [student_id]);
-    if (rows.length === 0) {
-      return res.status(400).json({ message: 'Invalid Student ID or Password' });
-    }
-
-    const student = rows[0];
-    const validPassword = await bcrypt.compare(password, student.password_hash);
-
-    if (!validPassword) {
-      return res.status(400).json({ message: 'Invalid Student ID or Password' });
-    }
-
-    const token = jwt.sign(
-    { id: student.id, student_id: student.student_id }, 
-    JWT_SECRET, 
-    { expiresIn: '24h' }
-  );
-
-    res.json({
-      message: 'Login successful',
-      token,
-      student: {
-        id: student.id,
-        student_id: student.student_id,
-        student_name: student.student_name,
-        section: student.section,
-        email: student.email,
-        mobile_number: student.mobile_number,
-        social_media_link: student.social_media_link,
-        profile_picture_url: student.profile_picture_url
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
 // LOGIN
 app.post('/api/login', async (req, res) => {
   const { student_id, password } = req.body;
@@ -187,6 +142,7 @@ app.post('/api/login', async (req, res) => {
     res.status(500).json({ message: 'Server error during login.', error: error.message });
   }
 });
+
 // ------------------- PROTECTED ROUTES -------------------
 
 // Get all students for public datatable
