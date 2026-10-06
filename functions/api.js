@@ -185,25 +185,51 @@ app.post('/api/students', async (req, res) => {
   }
 });
 //protected update student
+// ==========================================
+// PROTECTED ROUTE: Update Own Student Profile
+// ==========================================
 app.put('/api/students/:id', authenticateToken, async (req, res) => {
-  const { id } = req.params;
-  const { student_name, section, email, mobile_number, social_media_link, profile_picture_url } = req.body;
+  const targetId = parseInt(req.params.id, 10);
+  const authenticatedUserId = req.user.id; // From JWT payload
+
+  // Security Check: Enforce self-update only
+  if (authenticatedUserId !== targetId) {
+    return res.status(403).json({ message: 'Forbidden: You can only update your own profile.' });
+  }
+
+  const {
+    student_name,
+    section,
+    email,
+    mobile_number,
+    social_media_link,
+    profile_picture_url
+  } = req.body;
 
   try {
     const [result] = await pool.query(
       `UPDATE students 
-       SET student_name = ?, section = ?, email = ?, mobile_number = ?, social_media_link = ?, profile_picture_url = ? 
+       SET student_name = ?, section = ?, email = ?, mobile_number = ?, social_media_link = ?, profile_picture_url = ?
        WHERE id = ?`,
-      [student_name, section, email, mobile_number, social_media_link, profile_picture_url, id]
+      [
+        student_name,
+        section,
+        email,
+        mobile_number || '',
+        social_media_link || '',
+        profile_picture_url || '',
+        targetId
+      ]
     );
 
     if (result.affectedRows === 0) {
-      return res.status(404).json({ message: 'Student record not found' });
+      return res.status(404).json({ message: 'Student record not found.' });
     }
 
-    res.json({ message: 'Profile updated successfully' });
+    res.json({ message: 'Profile updated successfully!' });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Update profile error:', error);
+    res.status(500).json({ message: 'Database error while updating profile.', error: error.message });
   }
 });
 
