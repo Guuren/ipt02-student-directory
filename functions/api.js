@@ -9,7 +9,11 @@ const JWT_SECRET = process.env.JWT_SECRET || 'ipt02_compile';
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: '*', // or your specific Ionic origins
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+}));
 app.use(express.json());
 
 // JWT Verification Middleware
