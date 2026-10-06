@@ -9,11 +9,15 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const app = express();
 
 // Middleware
+// Enable CORS for all origins and allow Authorization headers
 app.use(cors({
-  origin: '*', // or your specific Ionic origins
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  origin: true,
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'Pragma', 'Expires'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
+// Respond immediately to all OPTIONS preflight requests
+app.options('*', cors());
 app.use(express.json());
 
 // JWT Verification Middleware
