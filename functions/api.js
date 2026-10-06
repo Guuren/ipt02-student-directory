@@ -10,15 +10,21 @@ const app = express();
 
 // Middleware
 // Enable CORS for all origins and allow Authorization headers
-app.use(cors({
-  origin: true,
-  credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'Pragma', 'Expires'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
-}));
-// Respond immediately to all OPTIONS preflight requests
-app.options('*', cors());
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma, Expires');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+
+  // Intercept OPTIONS preflight requests immediately
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  next();
+});
+// 2. Standard Body Parsing Middleware
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // JWT Verification Middleware
 function authenticateToken(req, res, next) {
