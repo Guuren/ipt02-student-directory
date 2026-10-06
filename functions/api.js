@@ -143,7 +143,10 @@ app.post('/api/login', async (req, res) => {
         student_id: student.student_id,
         student_name: student.student_name,
         email: student.email,
-        section: student.section
+        section: student.section,
+        mobile_number: student.mobile_number,
+        social_media_link: student.social_media_link,
+        profile_picture_url: student.profile_picture_url
       }
     });
 
