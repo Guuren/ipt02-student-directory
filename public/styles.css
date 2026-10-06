@@ -61,9 +61,16 @@ body {
 .avatar-img {
   width: 40px;
   height: 40px;
-  object-fit: cover;
+  min-width: 40px;
+  min-height: 40px;
   border-radius: 50%;
-  border: 2px solid var(--neust-gold);
+  object-fit: cover;
+  display: block;
+}
+
+#student-table-body td {
+  vertical-align: middle;
+  height: 56px; /* Prevents vertical shifting as content populates */
 }
 
 /* Chrome, Safari, Edge, Opera */

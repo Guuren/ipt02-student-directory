@@ -104,26 +104,32 @@ function renderTable(students) {
     return;
   }
 
-  const newHtml = students.map(s => `
-    <tr>
-      <td>
-        <img src="${s.profile_picture_url || 'https://via.placeholder.com/150'}" alt="Avatar" class="avatar-img" onerror="this.src='https://via.placeholder.com/150'">
-      </td>
-      <td class="fw-bold">${s.student_id}</td>
-      <td>${s.student_name}</td>
-      <td><span class="badge bg-neust-blue">${s.section}</span></td>
-      <td><a href="mailto:${s.email}" class="text-decoration-none">${s.email}</a></td>
-      <td>${s.mobile_number || '<span class="text-muted small">N/A</span>'}</td>
-      <td>
-        ${s.social_media_link ? `<a href="${s.social_media_link}" target="_blank" class="btn btn-sm btn-light"><i class="fa-brands fa-facebook text-primary"></i> Profile</a>` : '<span class="text-muted small">N/A</span>'}
-      </td>
-    </tr>
-  `).join('');
+  // Pure SVG fallback—no external network request required
+  const defaultAvatar = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 24 24' fill='%23ccc'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E";
 
-  // Only mutate the DOM if the HTML actually changed
-  if (tableBody.innerHTML !== newHtml) {
-    tableBody.innerHTML = newHtml;
-  }
+  const newHtml = students.map(s => {
+    const avatarUrl = (s.profile_picture_url && s.profile_picture_url.trim() !== '') 
+      ? s.profile_picture_url 
+      : defaultAvatar;
+
+    return `
+      <tr>
+        <td style="width: 50px;">
+          <img src="${avatarUrl}" alt="Avatar" class="avatar-img" width="40" height="40" onerror="this.onerror=null; this.src='${defaultAvatar}';">
+        </td>
+        <td class="fw-bold">${s.student_id}</td>
+        <td>${s.student_name}</td>
+        <td><span class="badge bg-neust-blue">${s.section}</span></td>
+        <td><a href="mailto:${s.email}" class="text-decoration-none">${s.email}</a></td>
+        <td>${s.mobile_number || '<span class="text-muted small">N/A</span>'}</td>
+        <td>
+          ${s.social_media_link ? `<a href="${s.social_media_link}" target="_blank" class="btn btn-sm btn-light"><i class="fa-brands fa-facebook text-primary"></i> Profile</a>` : '<span class="text-muted small">N/A</span>'}
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  tableBody.innerHTML = newHtml;
 }
 
 function togglePasswordVisibility() {
