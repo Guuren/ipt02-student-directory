@@ -56,12 +56,34 @@ function logout() {
 
 async function loadStudents() {
   const tableBody = document.getElementById('student-table-body');
-  
+  const token = localStorage.getItem('jwt_token');
+
+  // If no token is stored, return user to login UI
+  if (!token) {
+    logout();
+    return;
+  }
+
   try {
-    const res = await fetch(`${API_BASE}/students`);
+    const res = await fetch(`${API_BASE}/students`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    // Handle expired or invalid session tokens
+    if (res.status === 401 || res.status === 403) {
+      logout();
+      throw new Error('Session expired. Please log in again.');
+    }
+
     const students = await res.json();
 
-    if (!res.ok) throw new Error('Failed to load student data');
+    if (!res.ok) {
+      throw new Error(students.message || 'Failed to load student data');
+    }
 
     renderAnalytics(students);
     renderTable(students);
@@ -98,7 +120,7 @@ function renderTable(students) {
       <td>${s.student_name}</td>
       <td><span class="badge bg-neust-blue">${s.section}</span></td>
       <td><a href="mailto:${s.email}" class="text-decoration-none">${s.email}</a></td>
-      <td>${s.mobile_number}</td>
+      <td>${s.mobile_number || '<span class="text-muted small">N/A</span>'}</td>
       <td>
         ${s.social_media_link ? `<a href="${s.social_media_link}" target="_blank" class="btn btn-sm btn-light"><i class="fa-brands fa-facebook text-primary"></i> Profile</a>` : '<span class="text-muted small">N/A</span>'}
       </td>
