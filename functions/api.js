@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const serverless = require('serverless-http');
 const pool = require('../db');
-const JWT_SECRET = process.env.JWT_SECRET || 'ipt02_compile';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const app = express();
 
