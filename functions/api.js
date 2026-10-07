@@ -46,61 +46,74 @@ function authenticateToken(req, res, next) {
 // ==========================================
 // REGISTER NEW STUDENT
 // ==========================================
-// REGISTER
 app.post('/api/register', async (req, res) => {
-  const {
-    student_id,
-    student_name,
-    password,
-    section,
-    email,
-    mobile_number,
-    social_media_link,
-    profile_picture_url
+  const { 
+    student_id, 
+    student_name, 
+    password, 
+    section, 
+    email, 
+    mobile_number, 
+    social_media_link, 
+    profile_picture_url,
+    registration_token 
   } = req.body;
 
-  if (!student_id || !student_name || !password || !email) {
-    return res.status(400).json({ message: 'Missing required registration fields.' });
+  // 1. Verify Registration Token
+  const REQUIRED_TOKEN = 'IPT02_MAD67';
+  if (!registration_token || registration_token !== REQUIRED_TOKEN) {
+    return res.status(403).json({ 
+      message: 'Invalid or missing registration token. Only authorized students can register.' 
+    });
+  }
+
+  // 2. Validate Required Fields
+  if (!student_id || !student_name || !password || !email || !section) {
+    return res.status(400).json({ 
+      message: 'Student ID, Name, Password, Section, and Email are required.' 
+    });
   }
 
   try {
+    // Check if student_id already exists
     const [existing] = await pool.query(
-      'SELECT id FROM students WHERE student_id = ? OR email = ?',
-      [student_id, email]
+      'SELECT id FROM students WHERE student_id = ?', 
+      [student_id]
     );
 
     if (existing.length > 0) {
-      return res.status(400).json({ message: 'Student ID or Email is already registered.' });
+      return res.status(400).json({ message: 'Student ID is already registered.' });
     }
 
+    // Hash Password
     const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    const password_hash = await bcrypt.hash(password, saltRounds);
 
-    // Updated 'password' -> 'password_hash' in column list
+    // Insert Student Record
     const [result] = await pool.query(
       `INSERT INTO students 
-      (student_id, student_name, password_hash, section, email, mobile_number, social_media_link, profile_picture_url) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        (student_id, student_name, password_hash, section, email, mobile_number, social_media_link, profile_picture_url) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        student_id,
-        student_name,
-        hashedPassword,
-        section || '',
-        email,
-        mobile_number || '',
-        social_media_link || '',
-        profile_picture_url || ''
+        student_id, 
+        student_name, 
+        password_hash, 
+        section, 
+        email, 
+        mobile_number || null, 
+        social_media_link || null, 
+        profile_picture_url || null
       ]
     );
 
-    res.status(201).json({
-      message: 'Account created successfully!',
-      studentId: result.insertId
+    res.status(201).json({ 
+      message: 'Account created successfully!', 
+      studentId: result.insertId 
     });
 
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ message: 'Database error during registration.', error: error.message });
+    res.status(500).json({ message: 'Server error during registration.' });
   }
 });
 
