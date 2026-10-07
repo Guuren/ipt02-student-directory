@@ -84,3 +84,25 @@ input::-webkit-inner-spin-button {
 input[type=number] {
   -moz-appearance: textfield;
 }
+
+/* Swagger Method Color Customization */
+.bg-success-subtle {
+  background-color: #e8f5e9 !important;
+}
+.bg-primary-subtle {
+  background-color: #e3f2fd !important;
+}
+.bg-warning-subtle {
+  background-color: #fff8e1 !important;
+}
+
+.accordion-button:not(.collapsed) {
+  box-shadow: none;
+}
+
+/* Modal styling */
+.modal-body pre {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.85rem;
+  overflow-x: auto;
+}
