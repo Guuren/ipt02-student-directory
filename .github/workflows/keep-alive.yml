@@ -1,0 +1,17 @@
+name: Aiven Database Keep-Alive
+
+on:
+  schedule:
+    # Runs every 4 hours (At minute 0 of every 4th hour)
+    - cron: '0 */4 * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+jobs:
+  ping-db:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Netlify Express API
+        run: |
+          echo "Pinging Netlify API to keep Aiven MySQL active..."
+          curl -s -o /dev/null -w "%{http_code}" https://ipt02-student-directory.netlify.app/api/students
+          echo -e "\nPing completed."
