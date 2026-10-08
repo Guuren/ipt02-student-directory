@@ -2,6 +2,14 @@ const API_BASE = '/api';
 let dataTableInstance = null;
 let activeSections = new Set();
 
+// Live Chat Global Variables
+let pusherClient = null;
+let chatChannel = null;
+
+// ==========================================
+// AUTHENTICATION & DASHBOARD FLOW
+// ==========================================
+
 async function handleLogin(e) {
   e.preventDefault();
   const student_id = document.getElementById('login-student-id').value;
@@ -36,7 +44,13 @@ function showDashboard() {
   document.getElementById('login-section').classList.add('d-none');
   document.getElementById('dashboard-section').classList.remove('d-none');
   document.getElementById('logout-btn').classList.remove('d-none');
+  
+  // Show Chat Floating Action Button
+  const chatToggleBtn = document.getElementById('chat-toggle-btn');
+  if (chatToggleBtn) chatToggleBtn.classList.remove('d-none');
+
   loadStudents();
+  initPusherChat();
 }
 
 function logout() {
@@ -45,7 +59,24 @@ function logout() {
   document.getElementById('dashboard-section').classList.add('d-none');
   document.getElementById('logout-btn').classList.add('d-none');
   document.getElementById('login-section').classList.remove('d-none');
+
+  // Hide Chat Floating Action Button & Widget
+  const chatToggleBtn = document.getElementById('chat-toggle-btn');
+  const chatWidget = document.getElementById('chat-widget');
+  if (chatToggleBtn) chatToggleBtn.classList.add('d-none');
+  if (chatWidget) chatWidget.classList.add('d-none');
+
+  // Unsubscribe from Pusher channel
+  if (pusherClient && chatChannel) {
+    pusherClient.unsubscribe('student-chat-channel');
+    pusherClient = null;
+    chatChannel = null;
+  }
 }
+
+// ==========================================
+// STUDENT DIRECTORY & DATATABLE
+// ==========================================
 
 async function loadStudents() {
   const token = localStorage.getItem('jwt_token');
@@ -96,8 +127,9 @@ function renderAnalytics(students) {
 function renderDataTable(students) {
   const defaultAvatar = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 24 24' fill='%23ccc'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E";
 
-  if (dataTableInstance) {
-    dataTableInstance.destroy();
+  // Prevent "Cannot reinitialise DataTable" error by safely clearing and destroying existing instance
+  if ($.fn.DataTable.isDataTable('#student-datatable')) {
+    $('#student-datatable').DataTable().clear().destroy();
   }
 
   dataTableInstance = $('#student-datatable').DataTable({
@@ -114,7 +146,7 @@ function renderDataTable(students) {
       },
       {
         data: 'profile_picture_url',
-        render: function (data, type, row) {
+        render: function (data) {
           const avatarUrl = (data && data.trim() !== '') ? data : defaultAvatar;
           return `<img src="${avatarUrl}" alt="Avatar" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;" onerror="this.onerror=null; this.src='${defaultAvatar}';">`;
         },
@@ -189,7 +221,7 @@ function applySectionFilters() {
   if (!dataTableInstance) return;
 
   if (activeSections.size === 0) {
-    // Column index 4 corresponds to Section (due to the added hidden id column at index 0)
+    // Column index 4 corresponds to Section
     dataTableInstance.column(4).search('').draw();
   } else {
     const searchPattern = '^(' + Array.from(activeSections).join('|') + ')$';
@@ -212,6 +244,129 @@ function togglePasswordVisibility() {
   }
 }
 
+// ==========================================
+// LIVE CHAT (PUSHER INTEGRATION)
+// ==========================================
+
+function initPusherChat() {
+  if (pusherClient) return; // Prevent duplicate subscriptions
+
+  // Replace with your actual Pusher Key & Cluster from step 1
+  pusherClient = new Pusher('YOUR_PUBLIC_PUSHER_KEY', {
+    cluster: 'ap1'
+  });
+
+  chatChannel = pusherClient.subscribe('student-chat-channel');
+
+  chatChannel.bind('new-message', function(data) {
+    appendChatMessage(data);
+  });
+
+  // Load chat history from MySQL
+  loadChatHistory();
+}
+
+async function loadChatHistory() {
+  const token = localStorage.getItem('jwt_token');
+  const chatContainer = document.getElementById('chat-messages');
+
+  if (!chatContainer || !token) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/chat/history`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!res.ok) throw new Error('Failed to load history');
+
+    const history = await res.json();
+    chatContainer.innerHTML = ''; // Clear prior content
+
+    history.forEach(msg => appendChatMessage(msg));
+  } catch (err) {
+    console.error('Chat History Error:', err.message);
+  }
+}
+
+function appendChatMessage(data) {
+  const chatContainer = document.getElementById('chat-messages');
+  if (!chatContainer) return;
+
+  const currentUser = JSON.parse(localStorage.getItem('student_user') || '{}');
+  
+  // Compare using primary key ID (fallback to student_id)
+  const isSelf = currentUser.id ? (currentUser.id === data.student_pk) : (currentUser.student_id === data.student_id);
+  const timeStr = new Date(data.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  const defaultAvatar = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='%23ccc'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E";
+  const avatarUrl = (data.profile_picture_url && data.profile_picture_url.trim() !== '') ? data.profile_picture_url : defaultAvatar;
+
+  const safeName = document.createTextNode(data.student_name || 'Student').textContent;
+  const safeMsg = document.createTextNode(data.message).textContent;
+
+  const msgHtml = `
+    <div class="mb-2 d-flex flex-column ${isSelf ? 'align-items-end' : 'align-items-start'}">
+      <div class="d-flex align-items-center gap-1 mb-1" style="font-size: 0.75rem;">
+        <img src="${avatarUrl}" class="rounded-circle" width="20" height="20" style="object-fit: cover;" onerror="this.onerror=null; this.src='${defaultAvatar}';">
+        <span class="fw-bold">${isSelf ? 'You' : safeName}</span>
+        <span class="badge bg-neust-blue" style="font-size: 0.65rem;">${data.section || 'N/A'}</span>
+      </div>
+      <div class="p-2 rounded ${isSelf ? 'bg-primary text-white' : 'bg-white text-dark border'}" style="max-width: 85%; word-wrap: break-word; font-size: 0.875rem;">
+        ${safeMsg}
+      </div>
+      <div class="text-muted mt-1" style="font-size: 0.65rem;">${timeStr}</div>
+    </div>
+  `;
+
+  chatContainer.insertAdjacentHTML('beforeend', msgHtml);
+  chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+
+async function handleSendChatMessage(e) {
+  e.preventDefault();
+  const input = document.getElementById('chat-input');
+  const errorBox = document.getElementById('chat-error');
+  const token = localStorage.getItem('jwt_token');
+
+  const message = input.value.trim();
+  if (!message) return;
+
+  if (errorBox) errorBox.classList.add('d-none');
+
+  try {
+    const res = await fetch(`${API_BASE}/chat/send`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ message })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to send message');
+    }
+
+    input.value = ''; // Clear input on success
+  } catch (err) {
+    if (errorBox) {
+      errorBox.textContent = err.message;
+      errorBox.classList.remove('d-none');
+    }
+  }
+}
+
+function toggleChatWidget() {
+  const widget = document.getElementById('chat-widget');
+  if (widget) widget.classList.toggle('d-none');
+}
+
+// ==========================================
+// DOM CONTENT LOADED INITIALIZATION
+// ==========================================
+
 document.addEventListener('DOMContentLoaded', () => {
   const token = localStorage.getItem('jwt_token');
   if (token) {
@@ -221,6 +376,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const loginForm = document.getElementById('login-form');
   if (loginForm) {
     loginForm.addEventListener('submit', handleLogin);
+  }
+
+  const chatForm = document.getElementById('chat-form');
+  if (chatForm) {
+    chatForm.addEventListener('submit', handleSendChatMessage);
   }
 
   const studentIdInput = document.getElementById('login-student-id');
