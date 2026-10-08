@@ -6,6 +6,8 @@
   <title>NEUST Student Directory & Analytics</title>
   <!-- Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- DataTables Bootstrap 5 CSS -->
+  <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet">
   <!-- FontAwesome Icons -->
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
@@ -129,57 +131,28 @@
 
     <!-- Student Directory Table Card -->
     <div class="card border-0 shadow-sm rounded-3">
-      <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-        <h5 class="mb-0 fw-bold text-neust-blue"><i class="fa-solid fa-table me-2"></i>Enrolled Students Directory</h5>
-        <button class="btn btn-sm btn-outline-neust-blue" onclick="loadStudents()">
-          <i class="fa-solid fa-rotate me-1"></i> Refresh
-        </button>
-      </div>
+      <div class="card-header bg-white py-3">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+          <h5 class="mb-0 fw-bold text-neust-blue"><i class="fa-solid fa-table me-2"></i>Enrolled Students Directory</h5>
+          <button class="btn btn-sm btn-outline-neust-blue" onclick="loadStudents()">
+            <i class="fa-solid fa-rotate me-1"></i> Refresh
+          </button>
+        </div>
 
-<!-- Filter, Search, and Sort Controls -->
-        <div class="row g-2 align-items-center">
-          
-          <!-- Search Input -->
-          <div class="col-md-4">
-            <div class="input-group input-group-sm">
-              <span class="input-group-text bg-light border-end-0"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
-              <input type="text" id="table-search-input" class="form-control border-start-0" placeholder="Search name, ID, email, or section...">
-            </div>
-          </div>
-
-          <!-- Toggleable Section Filter Buttons -->
-          <div class="col-md-5">
-            <div class="d-flex align-items-center gap-1 flex-wrap">
-              <span class="small fw-semibold text-secondary me-1"><i class="fa-solid fa-filter me-1"></i>Filter:</span>
-              <button type="button" class="btn btn-sm btn-outline-primary active-section-filter px-2 py-1 small" data-section="BSIT-3A" onclick="toggleSectionFilter(this)">BSIT-3A</button>
-              <button type="button" class="btn btn-sm btn-outline-primary active-section-filter px-2 py-1 small" data-section="BSIT-3B" onclick="toggleSectionFilter(this)">BSIT-3B</button>
-              <button type="button" class="btn btn-sm btn-outline-primary active-section-filter px-2 py-1 small" data-section="BSIT-3C" onclick="toggleSectionFilter(this)">BSIT-3C</button>
-              <button type="button" class="btn btn-sm btn-link text-decoration-none text-muted p-0 ms-1 small" onclick="clearSectionFilters()">Clear</button>
-            </div>
-          </div>
-
-          <!-- Sort Selector -->
-          <div class="col-md-3">
-            <div class="d-flex align-items-center justify-content-end gap-2">
-              <label for="table-sort-select" class="small fw-semibold text-secondary text-nowrap mb-0"><i class="fa-solid fa-arrow-down-a-z me-1"></i>Sort:</label>
-              <select id="table-sort-select" class="form-select form-select-sm" onchange="handleSortChange(this.value)">
-                <option value="name-asc">Name (A-Z)</option>
-                <option value="name-desc">Name (Z-A)</option>
-                <option value="id-asc">Student ID (Asc)</option>
-                <option value="id-desc">Student ID (Desc)</option>
-                <option value="section-asc">Section (A-Z)</option>
-              </select>
-            </div>
-          </div>
-
+        <!-- Toggleable Section Filter Buttons -->
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <span class="small fw-semibold text-secondary me-1"><i class="fa-solid fa-filter me-1"></i>Filter Section:</span>
+          <button type="button" class="btn btn-sm btn-outline-primary section-filter-btn" data-section="BSIT-3A" onclick="toggleSectionFilter('BSIT-3A', this)">BSIT-3A</button>
+          <button type="button" class="btn btn-sm btn-outline-primary section-filter-btn" data-section="BSIT-3B" onclick="toggleSectionFilter('BSIT-3B', this)">BSIT-3B</button>
+          <button type="button" class="btn btn-sm btn-outline-primary section-filter-btn" data-section="BSIT-3C" onclick="toggleSectionFilter('BSIT-3C', this)">BSIT-3C</button>
+          <button type="button" class="btn btn-sm btn-link text-decoration-none text-muted p-0 ms-1 small" onclick="clearSectionFilters()">Clear Filters</button>
         </div>
       </div>
 
-      <!-- Table Body -->
-
-      <div class="card-body p-0">
+      <!-- DataTables Container -->
+      <div class="card-body p-3">
         <div class="table-responsive">
-          <table class="table table-hover align-middle mb-0">
+          <table id="student-datatable" class="table table-hover align-middle w-100">
             <thead class="table-light">
               <tr>
                 <th>Profile</th>
@@ -191,31 +164,13 @@
                 <th>Social Link</th>
               </tr>
             </thead>
-            <tbody id="student-table-body">
-              <tr>
-                <td colspan="7" class="text-center py-4 text-muted">Loading directory data...</td>
-              </tr>
+            <tbody>
+              <!-- DataTables will populate rows here dynamically -->
             </tbody>
           </table>
         </div>
       </div>
-
-      <!-- Pagination Footer -->
-      <div class="card-footer bg-white py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <div class="small text-muted" id="pagination-info">
-          Showing 0 to 0 of 0 entries
-        </div>
-        <div class="d-flex align-items-center gap-2">
-          <select id="items-per-page-select" class="form-select form-select-sm" style="width: auto;" onchange="changeItemsPerPage(this.value)">
-            <option value="5">5 per page</option>
-            <option value="10" selected>10 per page</option>
-            <option value="25">25 per page</option>
-          </select>
-          <ul class="pagination pagination-sm mb-0" id="pagination-controls">
-            <!-- Dynamic page buttons injected here -->
-          </ul>
-        </div>
-      </div>
+    </div>
 
     </div>
   </main>
@@ -447,9 +402,13 @@
       </div>
     </div>
   </div>
+  
 
   <!-- JavaScript -->
+  <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
