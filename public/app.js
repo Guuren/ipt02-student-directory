@@ -167,3 +167,182 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+
+  // Enable Bootstrap tooltips globally
+  const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+  const tooltipList = [...tooltipTriggerList].map(el => new bootstrap.Tooltip(el));
+
+  // State Variables
+let rawStudentsData = [];
+let selectedSections = new Set();
+let searchQuery = '';
+let currentSortKey = 'name-asc';
+let currentPage = 1;
+let itemsPerPage = 10;
+
+// Listen for search input typing
+document.getElementById('table-search-input')?.addEventListener('input', (e) => {
+  searchQuery = e.target.value.toLowerCase().trim();
+  currentPage = 1; // Reset to page 1 on new search
+  renderDirectoryTable();
+});
+
+// Toggle multi-select section filters
+function toggleSectionFilter(btnElement) {
+  const section = btnElement.getAttribute('data-section');
+  
+  if (selectedSections.has(section)) {
+    selectedSections.delete(section);
+    btnElement.classList.remove('active', 'btn-primary');
+    btnElement.classList.add('btn-outline-primary');
+  } else {
+    selectedSections.add(section);
+    btnElement.classList.add('active', 'btn-primary');
+    btnElement.classList.remove('btn-outline-primary');
+  }
+  
+  currentPage = 1;
+  renderDirectoryTable();
+}
+
+function clearSectionFilters() {
+  selectedSections.clear();
+  document.querySelectorAll('.active-section-filter').forEach(btn => {
+    btn.classList.remove('active', 'btn-primary');
+    btn.classList.add('btn-outline-primary');
+  });
+  currentPage = 1;
+  renderDirectoryTable();
+}
+
+// Handle sort selection changes
+function handleSortChange(sortKey) {
+  currentSortKey = sortKey;
+  renderDirectoryTable();
+}
+
+// Handle items per page selection
+function changeItemsPerPage(newLimit) {
+  itemsPerPage = parseInt(newLimit, 10);
+  currentPage = 1;
+  renderDirectoryTable();
+}
+
+// Core Rendering Engine with Filtering, Sorting, and Pagination
+function renderDirectoryTable() {
+  const tbody = document.getElementById('student-table-body');
+  
+  // 1. Filter Data
+  let filtered = rawStudentsData.filter(student => {
+    // Section match (if any section filters are active)
+    const matchesSection = selectedSections.size === 0 || selectedSections.has(student.section);
+    
+    // Search query match across multiple fields
+    const matchesSearch = !searchQuery || 
+      (student.student_name && student.student_name.toLowerCase().includes(searchQuery)) ||
+      (student.student_id && student.student_id.toLowerCase().includes(searchQuery)) ||
+      (student.email && student.email.toLowerCase().includes(searchQuery)) ||
+      (student.section && student.section.toLowerCase().includes(searchQuery));
+
+    return matchesSection && matchesSearch;
+  });
+
+  // 2. Sort Data
+  filtered.sort((a, b) => {
+    switch (currentSortKey) {
+      case 'name-asc':
+        return (a.student_name || '').localeCompare(b.student_name || '');
+      case 'name-desc':
+        return (b.student_name || '').localeCompare(a.student_name || '');
+      case 'id-asc':
+        return (a.student_id || '').localeCompare(b.student_id || '');
+      case 'id-desc':
+        return (b.student_id || '').localeCompare(a.student_id || '');
+      case 'section-asc':
+        return (a.section || '').localeCompare(b.section || '');
+      default:
+        return 0;
+    }
+  });
+
+  // 3. Paginate Data
+  const totalEntries = filtered.length;
+  const totalPages = Math.ceil(totalEntries / itemsPerPage) || 1;
+  if (currentPage > totalPages) currentPage = totalPages;
+
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = Math.min(startIndex + itemsPerPage, totalEntries);
+  const pageItems = filtered.slice(startIndex, endIndex);
+
+  // 4. Render Table Rows
+  if (pageItems.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="7" class="text-center py-4 text-muted">
+          <i class="fa-solid fa-magnifying-glass fa-2x mb-2 opacity-50 d-block"></i>
+          No student records found matching your filters.
+        </td>
+      </tr>`;
+  } else {
+    tbody.innerHTML = pageItems.map(student => `
+      <tr>
+        <td>
+          <img src="${student.profile_picture_url || 'https://via.placeholder.com/40'}" 
+               alt="${student.student_name}" 
+               class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;">
+        </td>
+        <td class="fw-semibold text-neust-blue">${student.student_id}</td>
+        <td class="fw-bold">${student.student_name}</td>
+        <td><span class="badge bg-secondary opacity-75">${student.section}</span></td>
+        <td>${student.email || '—'}</td>
+        <td>${student.mobile_number || '—'}</td>
+        <td>
+          ${student.social_media_link 
+            ? `<a href="${student.social_media_link}" target="_blank" class="btn btn-sm btn-outline-primary py-0 px-2 small"><i class="fa-solid fa-arrow-up-right-from-square me-1"></i>Link</a>` 
+            : '—'}
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  // 5. Update Footer & Controls
+  updatePaginationControls(totalEntries, totalPages, startIndex, endIndex);
+}
+
+function updatePaginationControls(totalEntries, totalPages, startIndex, endIndex) {
+  const info = document.getElementById('pagination-info');
+  const controls = document.getElementById('pagination-controls');
+
+  // Update text
+  info.innerText = totalEntries === 0 
+    ? 'Showing 0 entries' 
+    : `Showing ${startIndex + 1} to ${endIndex} of ${totalEntries} entries`;
+
+  // Build pagination buttons
+  let html = `
+    <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+      <button class="page-link" onclick="goToPage(${currentPage - 1})">Prev</button>
+    </li>
+  `;
+
+  for (let i = 1; i <= totalPages; i++) {
+    html += `
+      <li class="page-item ${currentPage === i ? 'active' : ''}">
+        <button class="page-link" onclick="goToPage(${i})">${i}</button>
+      </li>
+    `;
+  }
+
+  html += `
+    <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+      <button class="page-link" onclick="goToPage(${currentPage + 1})">Next</button>
+    </li>
+  `;
+
+  controls.innerHTML = html;
+}
+
+function goToPage(page) {
+  currentPage = page;
+  renderDirectoryTable();
+}
