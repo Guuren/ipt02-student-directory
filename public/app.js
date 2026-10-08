@@ -50,7 +50,6 @@ function logout() {
 async function loadStudents() {
   const token = localStorage.getItem('jwt_token');
 
-  // If no token is stored, return user to login UI
   if (!token) {
     logout();
     return;
@@ -65,7 +64,6 @@ async function loadStudents() {
       }
     });
 
-    // Handle expired or invalid session tokens
     if (res.status === 401 || res.status === 403) {
       logout();
       throw new Error('Session expired. Please log in again.');
@@ -96,10 +94,8 @@ function renderAnalytics(students) {
 }
 
 function renderDataTable(students) {
-  // Pure SVG fallback—no external network request required
   const defaultAvatar = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 24 24' fill='%23ccc'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E";
 
-  // Destroy previous instance before re-initializing
   if (dataTableInstance) {
     dataTableInstance.destroy();
   }
@@ -109,8 +105,13 @@ function renderDataTable(students) {
     responsive: true,
     pageLength: 10,
     lengthMenu: [5, 10, 25, 50],
-    order: [[2, 'asc']], // Sort by Name column ascending
+    order: [[0, 'asc']], // Default sort by Database Primary Key (id) ascending
     columns: [
+      {
+        data: 'id',
+        visible: false, // Hidden column used purely for database primary key sorting
+        searchable: false
+      },
       {
         data: 'profile_picture_url',
         render: function (data, type, row) {
@@ -158,11 +159,9 @@ function renderDataTable(students) {
     ]
   });
 
-  // Re-apply any active section filter buttons if active
   applySectionFilters();
 }
 
-// Section Filter Button Handlers
 function toggleSectionFilter(sectionName, btnElement) {
   if (activeSections.has(sectionName)) {
     activeSections.delete(sectionName);
@@ -190,12 +189,11 @@ function applySectionFilters() {
   if (!dataTableInstance) return;
 
   if (activeSections.size === 0) {
-    // Column index 3 corresponds to Section
-    dataTableInstance.column(3).search('').draw();
+    // Column index 4 corresponds to Section (due to the added hidden id column at index 0)
+    dataTableInstance.column(4).search('').draw();
   } else {
-    // Regex matching for multi-section selection e.g. "^(BSIT-3A|BSIT-3B)$"
     const searchPattern = '^(' + Array.from(activeSections).join('|') + ')$';
-    dataTableInstance.column(3).search(searchPattern, true, false).draw();
+    dataTableInstance.column(4).search(searchPattern, true, false).draw();
   }
 }
 
@@ -225,7 +223,6 @@ document.addEventListener('DOMContentLoaded', () => {
     loginForm.addEventListener('submit', handleLogin);
   }
 
-  // Real-time character restriction for Student ID
   const studentIdInput = document.getElementById('login-student-id');
   if (studentIdInput) {
     studentIdInput.addEventListener('input', (e) => {
@@ -233,7 +230,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Enable Bootstrap tooltips globally
   const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
   const tooltipList = [...tooltipTriggerList].map(el => new bootstrap.Tooltip(el));
 });
