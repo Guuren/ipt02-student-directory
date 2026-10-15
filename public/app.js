@@ -125,6 +125,7 @@ function renderDataTable(students) {
 
   const studentData = Array.isArray(students) ? students : [];
 
+  // Safely destroy existing instance
   if (dataTableInstance) {
     dataTableInstance.destroy();
     dataTableInstance = null;
@@ -134,79 +135,80 @@ function renderDataTable(students) {
 
   $('#student-datatable tbody').empty();
 
-  dataTableInstance = $('#student-datatable').DataTable({
-    data: studentData,
-    deferRender: false, // Forces immediate DOM row creation
-    responsive: true,
-    pageLength: 10,
-    lengthMenu: [5, 10, 25, 50],
-    order: [[0, 'asc']],
-    columns: [
-      {
-        data: 'id',
-        visible: false,
-        searchable: false
-      },
-      {
-        data: 'profile_picture_url',
-        render: function (data) {
-          const avatarUrl = (data && data.trim() !== '') ? data : defaultAvatar;
-          return `<img src="${avatarUrl}" alt="Avatar" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;" onerror="this.onerror=null; this.src='${defaultAvatar}';">`;
+  // Defer initialization to next animation frame so DOM is fully rendered
+  requestAnimationFrame(() => {
+    dataTableInstance = $('#student-datatable').DataTable({
+      data: studentData,
+      responsive: true,
+      autoWidth: false,
+      pageLength: 10,
+      lengthMenu: [5, 10, 25, 50],
+      order: [[0, 'asc']],
+      columns: [
+        {
+          data: 'id',
+          visible: false,
+          searchable: false
         },
-        orderable: false,
-        width: "50px"
-      },
-      { 
-        data: 'student_id', 
-        className: 'fw-bold text-neust-blue',
-        defaultContent: 'N/A'
-      },
-      { 
-        data: 'student_name', 
-        className: 'fw-bold',
-        defaultContent: 'N/A'
-      },
-      {
-        data: 'section',
-        render: function (data) {
-          return `<span class="badge bg-neust-blue">${data || 'N/A'}</span>`;
+        {
+          data: 'profile_picture_url',
+          render: function (data) {
+            const avatarUrl = (data && data.trim() !== '') ? data : defaultAvatar;
+            return `<img src="${avatarUrl}" alt="Avatar" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;" onerror="this.onerror=null; this.src='${defaultAvatar}';">`;
+          },
+          orderable: false,
+          width: "50px"
         },
-        defaultContent: 'N/A'
-      },
-      {
-        data: 'email',
-        render: function (data) {
-          if (!data) return '<span class="text-muted small">N/A</span>';
-          return `<a href="mailto:${data}" class="text-decoration-none">${data}</a>`;
+        { 
+          data: 'student_id', 
+          className: 'fw-bold text-neust-blue',
+          defaultContent: 'N/A'
         },
-        defaultContent: '<span class="text-muted small">N/A</span>'
-      },
-      {
-        data: 'mobile_number',
-        render: function (data) {
-          return data ? data : '<span class="text-muted small">N/A</span>';
+        { 
+          data: 'student_name', 
+          className: 'fw-bold',
+          defaultContent: 'N/A'
         },
-        defaultContent: '<span class="text-muted small">N/A</span>'
-      },
-      {
-        data: 'social_media_link',
-        render: function (data) {
-          if (!data) return '<span class="text-muted small">N/A</span>';
-          return `<a href="${data}" target="_blank" class="btn btn-sm btn-light"><i class="fa-brands fa-facebook text-primary me-1"></i>Profile</a>`;
+        {
+          data: 'section',
+          render: function (data) {
+            return `<span class="badge bg-neust-blue">${data || 'N/A'}</span>`;
+          },
+          defaultContent: 'N/A'
         },
-        orderable: false,
-        defaultContent: '<span class="text-muted small">N/A</span>'
-      }
-    ]
+        {
+          data: 'email',
+          render: function (data) {
+            if (!data) return '<span class="text-muted small">N/A</span>';
+            return `<a href="mailto:${data}" class="text-decoration-none">${data}</a>`;
+          },
+          defaultContent: '<span class="text-muted small">N/A</span>'
+        },
+        {
+          data: 'mobile_number',
+          render: function (data) {
+            return data ? data : '<span class="text-muted small">N/A</span>';
+          },
+          defaultContent: '<span class="text-muted small">N/A</span>'
+        },
+        {
+          data: 'social_media_link',
+          render: function (data) {
+            if (!data) return '<span class="text-muted small">N/A</span>';
+            return `<a href="${data}" target="_blank" class="btn btn-sm btn-light"><i class="fa-brands fa-facebook text-primary me-1"></i>Profile</a>`;
+          },
+          orderable: false,
+          defaultContent: '<span class="text-muted small">N/A</span>'
+        }
+      ]
+    });
+
+    applySectionFilters();
   });
-
-  // Force an immediate redraw to paint the table on page load without manual interaction
-  dataTableInstance.columns.adjust().draw();
-
-  applySectionFilters();
 }
 
-function toggleSectionFilter(sectionName, btnElement) {
+// Global functions for inline HTML event handlers
+window.toggleSectionFilter = function(sectionName, btnElement) {
   if (activeSections.has(sectionName)) {
     activeSections.delete(sectionName);
     btnElement.classList.remove('active', 'btn-primary');
@@ -218,16 +220,16 @@ function toggleSectionFilter(sectionName, btnElement) {
   }
 
   applySectionFilters();
-}
+};
 
-function clearSectionFilters() {
+window.clearSectionFilters = function() {
   activeSections.clear();
   document.querySelectorAll('.section-filter-btn').forEach(btn => {
     btn.classList.remove('active', 'btn-primary');
     btn.classList.add('btn-outline-primary');
   });
   applySectionFilters();
-}
+};
 
 function applySectionFilters() {
   if (!dataTableInstance) return;
@@ -268,7 +270,6 @@ async function initPusherChat() {
   }
 
   try {
-    // Dynamically fetch public Pusher key and cluster from backend API
     const res = await fetch(`${API_BASE}/config/pusher`);
     const config = await res.json();
 
@@ -415,7 +416,4 @@ document.addEventListener('DOMContentLoaded', () => {
       e.target.value = e.target.value.replace(/[^0-9-]/g, '');
     });
   }
-
-  const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-  const tooltipList = [...tooltipTriggerList].map(el => new bootstrap.Tooltip(el));
 });
