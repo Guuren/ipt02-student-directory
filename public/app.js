@@ -136,6 +136,7 @@ function renderDataTable(students) {
 
   dataTableInstance = $('#student-datatable').DataTable({
     data: studentData,
+    deferRender: false, // Forces immediate DOM row creation
     responsive: true,
     pageLength: 10,
     lengthMenu: [5, 10, 25, 50],
@@ -198,6 +199,9 @@ function renderDataTable(students) {
       }
     ]
   });
+
+  // Force an immediate redraw to paint the table on page load without manual interaction
+  dataTableInstance.columns.adjust().draw();
 
   applySectionFilters();
 }
