@@ -252,28 +252,41 @@ function togglePasswordVisibility() {
 }
 
 // ==========================================
-// LIVE CHAT (PUSHER INTEGRATION)
+// LIVE CHAT (DYNAMIC PUSHER CONFIGURATION)
 // ==========================================
 
-function initPusherChat() {
+async function initPusherChat() {
   if (pusherClient) return;
 
   if (typeof Pusher === 'undefined') {
-    console.warn('Pusher SDK not available.');
+    console.warn('Pusher SDK is not available.');
     return;
   }
 
-  pusherClient = new Pusher('3006d5cdc008439bebc5', {
-    cluster: 'ap1'
-  });
+  try {
+    // Dynamically fetch public Pusher key and cluster from backend API
+    const res = await fetch(`${API_BASE}/config/pusher`);
+    const config = await res.json();
 
-  chatChannel = pusherClient.subscribe('student-chat-channel');
+    if (!config.key) {
+      console.warn('Pusher key is not configured on server.');
+      return;
+    }
 
-  chatChannel.bind('new-message', function(data) {
-    appendChatMessage(data);
-  });
+    pusherClient = new Pusher(config.key, {
+      cluster: config.cluster || 'ap1'
+    });
 
-  loadChatHistory();
+    chatChannel = pusherClient.subscribe('student-chat-channel');
+
+    chatChannel.bind('new-message', function(data) {
+      appendChatMessage(data);
+    });
+
+    loadChatHistory();
+  } catch (err) {
+    console.error('Failed to initialize Pusher Chat:', err);
+  }
 }
 
 async function loadChatHistory() {
