@@ -3,37 +3,56 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const serverless = require('serverless-http');
+const Pusher = require('pusher');
+const Filter = require('bad-words');
 const pool = require('../db');
+
 const JWT_SECRET = process.env.JWT_SECRET;
 
 const app = express();
 
+// Initialize Pusher Server SDK
+const pusher = new Pusher({
+  appId: process.env.PUSHER_APP_ID,
+  key: process.env.PUSHER_KEY,
+  secret: process.env.PUSHER_SECRET,
+  cluster: process.env.PUSHER_CLUSTER || 'ap1',
+  useTLS: true
+});
+
+// Initialize Profanity Filter
+const filter = new Filter();
+filter.addWords('tangina', 'gago', 'bobo', 'tanga', 'ulol', 'pUTA');
+
+function containsLinks(text) {
+  const urlPattern = /(https?:\/\/[^\s]+)|(www\.[^\s]+)|([a-zA-Z0-9-]+\.(com|ph|net|org|edu|gov|io|me|dev)[^\s]*)/gi;
+  return urlPattern.test(text);
+}
+
 // Middleware
-// Enable CORS for all origins and allow Authorization headers
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma, Expires');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
 
-  // Intercept OPTIONS preflight requests immediately
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
   next();
 });
-// 2. Standard Body Parsing Middleware
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // JWT Verification Middleware
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+  const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) return res.status(401).json({ message: 'Access token missing' });
 
-  jwt.verify(token, JWT_SECRET, (err, user) => {
+  jwt.verify(token, JWT_SECRET || 'your_fallback_secret_key', (err, user) => {
     if (err) return res.status(403).json({ message: 'Invalid or expired token' });
     req.user = user;
     next();
@@ -42,10 +61,6 @@ function authenticateToken(req, res, next) {
 
 // ------------------- PUBLIC ROUTES -------------------
 
-//1. Student Register
-// ==========================================
-// REGISTER NEW STUDENT
-// ==========================================
 app.post('/api/register', async (req, res) => {
   const { 
     student_id, 
@@ -59,7 +74,6 @@ app.post('/api/register', async (req, res) => {
     registration_token 
   } = req.body;
 
-  // 1. Verify Registration Token
   const REQUIRED_TOKEN = 'IPT02_MAD67';
   if (!registration_token || registration_token !== REQUIRED_TOKEN) {
     return res.status(403).json({ 
@@ -67,7 +81,6 @@ app.post('/api/register', async (req, res) => {
     });
   }
 
-  // 2. Validate Required Fields
   if (!student_id || !student_name || !password || !email || !section) {
     return res.status(400).json({ 
       message: 'Student ID, Name, Password, Section, and Email are required.' 
@@ -75,7 +88,6 @@ app.post('/api/register', async (req, res) => {
   }
 
   try {
-    // Check if student_id already exists
     const [existing] = await pool.query(
       'SELECT id FROM students WHERE student_id = ?', 
       [student_id]
@@ -85,11 +97,9 @@ app.post('/api/register', async (req, res) => {
       return res.status(400).json({ message: 'Student ID is already registered.' });
     }
 
-    // Hash Password
     const saltRounds = 10;
     const password_hash = await bcrypt.hash(password, saltRounds);
 
-    // Insert Student Record
     const [result] = await pool.query(
       `INSERT INTO students 
         (student_id, student_name, password_hash, section, email, mobile_number, social_media_link, profile_picture_url) 
@@ -117,16 +127,12 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-
-// 2. Student Login
-// LOGIN
 app.post('/api/login', async (req, res) => {
   const { student_id, password } = req.body;
 
   try {
-    // Select password_hash from the DB
     const [rows] = await pool.query(
-      'SELECT id, student_id, student_name, password_hash, section, email FROM students WHERE student_id = ?',
+      'SELECT id, student_id, student_name, password_hash, section, email, mobile_number, social_media_link, profile_picture_url FROM students WHERE student_id = ?',
       [student_id]
     );
 
@@ -136,15 +142,20 @@ app.post('/api/login', async (req, res) => {
 
     const student = rows[0];
 
-    // Compare with password_hash
     const match = await bcrypt.compare(password, student.password_hash);
     if (!match) {
       return res.status(401).json({ message: 'Invalid Student ID or Password.' });
     }
 
     const token = jwt.sign(
-      { id: student.id, student_id: student.student_id },
-      process.env.JWT_SECRET || 'your_fallback_secret_key',
+      { 
+        id: student.id, 
+        student_id: student.student_id,
+        student_name: student.student_name,
+        section: student.section,
+        profile_picture_url: student.profile_picture_url
+      },
+      JWT_SECRET || 'your_fallback_secret_key',
       { expiresIn: '24h' }
     );
 
@@ -171,8 +182,6 @@ app.post('/api/login', async (req, res) => {
 
 // ------------------- PROTECTED ROUTES -------------------
 
-// Get all students for public datatable
-// PROTECTED ROUTE: Only logged-in users with a valid JWT can view student records
 app.get('/api/students', authenticateToken, async (req, res) => {
   try {
     const [rows] = await pool.query(
@@ -183,7 +192,7 @@ app.get('/api/students', authenticateToken, async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
-//Protected register student
+
 app.post('/api/students', async (req, res) => {
   const { student_id, student_name, password, section, email, mobile_number, social_media_link, profile_picture_url } = req.body;
 
@@ -200,15 +209,11 @@ app.post('/api/students', async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
-//protected update student
-// ==========================================
-// PROTECTED ROUTE: Update Own Student Profile
-// ==========================================
+
 app.put('/api/students/:id', authenticateToken, async (req, res) => {
   const targetId = parseInt(req.params.id, 10);
-  const authenticatedUserId = req.user.id; // From JWT payload
+  const authenticatedUserId = req.user.id;
 
-  // Security Check: Enforce self-update only
   if (authenticatedUserId !== targetId) {
     return res.status(403).json({ message: 'Forbidden: You can only update your own profile.' });
   }
@@ -246,6 +251,84 @@ app.put('/api/students/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Update profile error:', error);
     res.status(500).json({ message: 'Database error while updating profile.', error: error.message });
+  }
+});
+
+// ------------------- LIVE CHAT ENDPOINTS -------------------
+
+app.post('/api/chat/send', authenticateToken, async (req, res) => {
+  const { message } = req.body;
+  const user = req.user; // Set by authenticateToken middleware
+
+  if (!message || message.trim() === '') {
+    return res.status(400).json({ message: 'Message cannot be empty.' });
+  }
+
+  if (message.length > 250) {
+    return res.status(400).json({ message: 'Message exceeds 250 characters.' });
+  }
+
+  if (containsLinks(message)) {
+    return res.status(400).json({ message: 'Posting links or web URLs is not permitted.' });
+  }
+
+  if (filter.isProfane(message)) {
+    return res.status(400).json({ message: 'Inappropriate language detected.' });
+  }
+
+  const cleanMessage = message.trim();
+
+  try {
+    const [result] = await pool.query(
+      'INSERT INTO chat_messages (student_pk, message) VALUES (?, ?)',
+      [user.id, cleanMessage]
+    );
+
+    const payload = {
+      id: result.insertId,
+      student_pk: user.id,
+      student_id: user.student_id,
+      student_name: user.student_name,
+      section: user.section,
+      profile_picture_url: user.profile_picture_url,
+      message: cleanMessage,
+      timestamp: new Date().toISOString()
+    };
+
+    await pusher.trigger('student-chat-channel', 'new-message', payload);
+
+    res.status(200).json({ success: true, data: payload });
+  } catch (error) {
+    console.error('Send chat error:', error);
+    res.status(500).json({ message: 'Failed to send message.' });
+  }
+});
+
+app.get('/api/chat/history', authenticateToken, async (req, res) => {
+  try {
+    const sql = `
+      SELECT 
+        c.id,
+        c.student_pk,
+        c.message,
+        c.created_at AS timestamp,
+        s.student_id,
+        s.student_name,
+        s.section,
+        s.profile_picture_url
+      FROM chat_messages c
+      INNER JOIN students s ON c.student_pk = s.id
+      ORDER BY c.created_at DESC
+      LIMIT 50
+    `;
+
+    const [rows] = await pool.query(sql);
+
+    // Reverse array to display oldest to newest
+    res.status(200).json(rows.reverse());
+  } catch (error) {
+    console.error('Fetch chat history error:', error);
+    res.status(500).json({ message: 'Failed to fetch chat history.' });
   }
 });
 
