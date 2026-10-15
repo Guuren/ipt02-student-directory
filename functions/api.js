@@ -4,14 +4,13 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const serverless = require('serverless-http');
 const Pusher = require('pusher');
-const Filter = require('bad-words');
 const pool = require('../db');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
 const app = express();
 
-// Initialize Pusher Server SDK
+// Initialize Pusher Server SDK using Environment Variables
 const pusher = new Pusher({
   appId: process.env.PUSHER_APP_ID,
   key: process.env.PUSHER_KEY,
@@ -20,16 +19,26 @@ const pusher = new Pusher({
   useTLS: true
 });
 
-// Initialize Profanity Filter
-const filter = new Filter();
-filter.addWords('tangina', 'gago', 'bobo', 'tanga', 'ulol', 'pUTA');
+// Custom profanity check (English & Tagalog slang) to prevent CJS/ESM compatibility issues
+const PROFANITY_LIST = [
+  'tangina', 'gago', 'bobo', 'tanga', 'ulol', 'puta', 'inutil', 
+  'fuck', 'shit', 'asshole', 'bitch', 'bastard', 'crap'
+];
+
+function containsProfanity(text) {
+  const lower = text.toLowerCase();
+  return PROFANITY_LIST.some(word => {
+    const regex = new RegExp(`\\b${word}\\b`, 'i');
+    return regex.test(lower);
+  });
+}
 
 function containsLinks(text) {
   const urlPattern = /(https?:\/\/[^\s]+)|(www\.[^\s]+)|([a-zA-Z0-9-]+\.(com|ph|net|org|edu|gov|io|me|dev)[^\s]*)/gi;
   return urlPattern.test(text);
 }
 
-// Middleware
+// CORS Middleware
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma, Expires');
@@ -60,6 +69,14 @@ function authenticateToken(req, res, next) {
 }
 
 // ------------------- PUBLIC ROUTES -------------------
+
+// Public endpoint to safely provide Pusher configuration to frontend dynamically
+app.get('/api/config/pusher', (req, res) => {
+  res.json({
+    key: process.env.PUSHER_KEY || '',
+    cluster: process.env.PUSHER_CLUSTER || 'ap1'
+  });
+});
 
 app.post('/api/register', async (req, res) => {
   const { 
@@ -258,7 +275,7 @@ app.put('/api/students/:id', authenticateToken, async (req, res) => {
 
 app.post('/api/chat/send', authenticateToken, async (req, res) => {
   const { message } = req.body;
-  const user = req.user; // Set by authenticateToken middleware
+  const user = req.user;
 
   if (!message || message.trim() === '') {
     return res.status(400).json({ message: 'Message cannot be empty.' });
@@ -272,7 +289,7 @@ app.post('/api/chat/send', authenticateToken, async (req, res) => {
     return res.status(400).json({ message: 'Posting links or web URLs is not permitted.' });
   }
 
-  if (filter.isProfane(message)) {
+  if (containsProfanity(message)) {
     return res.status(400).json({ message: 'Inappropriate language detected.' });
   }
 
@@ -324,7 +341,6 @@ app.get('/api/chat/history', authenticateToken, async (req, res) => {
 
     const [rows] = await pool.query(sql);
 
-    // Reverse array to display oldest to newest
     res.status(200).json(rows.reverse());
   } catch (error) {
     console.error('Fetch chat history error:', error);
